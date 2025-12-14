@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NexusEdu - Learning Game</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #1a1a2e, #16213e, #0f3460);
+            min-height: 100vh;
+            color: white;
+            padding: 20px;
+        }
+        .container { max-width: 600px; margin: 0 auto; }
+        h1 {
+            text-align: center;
+            font-size: 2rem;
+            background: linear-gradient(90deg, #f39c12, #e74c3c);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 10px;
+        }
+        .topic-display {
+            text-align: center;
+            color: #3498db;
+            font-size: 1.3rem;
+            margin-bottom: 20px;
+        }
+        .card {
+            background: rgba(255,255,255,0.1);
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 20px;
+        }
+        .explanation {
+            background: rgba(52,152,219,0.2);
+            border-left: 4px solid #3498db;
+            padding: 15px;
+            border-radius: 0 10px 10px 0;
+            margin-bottom: 20px;
+        }
+        .score-bar {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 20px;
+        }
+        .score-item {
+            text-align: center;
+            background: rgba(255,255,255,0.1);
+            padding: 10px 20px;
+            border-radius: 10px;
+        }
+        .score-item span { font-size: 1.5rem; color: #f39c12; font-weight: bold; }
+        .question { font-size: 1.3rem; margin-bottom: 20px; text-align: center; }
+        .options { display: grid; gap: 10px; }
+        .option-btn {
+            padding: 15px;
+            font-size: 1rem;
+            background: rgba(255,255,255,0.1);
+            border: 2px solid rgba(255,255,255,0.2);
+            border-radius: 10px;
+            color: white;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+        .option-btn:hover { background: rgba(255,255,255,0.2); }
+        .option-btn.correct { background: rgba(46,204,113,0.5); border-color: #2ecc71; }
+        .option-btn.wrong { background: rgba(231,76,60,0.5); border-color: #e74c3c; }
+        .feedback {
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 15px;
+            display: none;
+            text-align: center;
+        }
+        .feedback.show { display: block; }
+        .next-btn {
+            width: 100%;
+            padding: 15px;
+            margin-top: 15px;
+            background: linear-gradient(135deg, #9b59b6, #8e44ad);
+            border: none;
+            border-radius: 10px;
+            color: white;
+            font-size: 1.1rem;
+            cursor: pointer;
+            display: none;
+        }
+        .next-btn.show { display: block; }
+        .input-box {
+            width: 100%;
+            padding: 15px;
+            font-size: 1rem;
+            border: 2px solid rgba(255,255,255,0.2);
+            border-radius: 10px;
+            background: rgba(255,255,255,0.1);
+            color: white;
+            margin-bottom: 15px;
+        }
+        .input-box::placeholder { color: rgba(255,255,255,0.5); }
+        .start-btn {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #2ecc71, #27ae60);
+            border: none;
+            border-radius: 10px;
+            color: white;
+            font-size: 1.1rem;
+            cursor: pointer;
+        }
+        .result { text-align: center; display: none; }
+        .result h2 { color: #f39c12; font-size: 2rem; margin-bottom: 20px; }
+        .result .final-score { font-size: 3rem; color: #2ecc71; font-weight: bold; }
+        .loading { text-align: center; padding: 40px; display: none; }
+        .spinner {
+            width: 40px; height: 40px;
+            border: 4px solid rgba(255,255,255,0.1);
+            border-top-color: #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎮 NexusEdu Game</h1>
+        <p class="topic-display" id="topic-display">Learn Any Topic!</p>
+
+        <!-- Setup -->
+        <div class="card" id="setup">
+            <input type="text" class="input-box" id="topic-input" placeholder="Enter topic (e.g., Prime Numbers, Fractions)">
+            <select class="input-box" id="age-select">
+                <option value="8">Age 6-10 (Easy)</option>
+                <option value="12" selected>Age 11-14 (Medium)</option>
+                <option value="16">Age 15-18 (Hard)</option>
+            </select>
+            <button class="start-btn" onclick="startGame()">🚀 Start Game!</button>
+        </div>
+
+        <!-- Loading -->
+        <div class="card loading" id="loading">
+            <div class="spinner"></div>
+            <p>Creating your game...</p>
+        </div>
+
+        <!-- Game -->
+        <div class="card" id="game" style="display:none;">
+            <div class="explanation" id="explain-box">
+                <strong>💡 Quick Learn:</strong>
+                <p id="explanation"></p>
+            </div>
+            <div class="score-bar">
+                <div class="score-item"><small>Question</small><span id="qnum">1/5</span></div>
+                <div class="score-item"><small>Score</small><span id="score">0</span></div>
+            </div>
+            <p class="question" id="question"></p>
+            <div class="options" id="options"></div>
+            <div class="feedback" id="feedback"></div>
+            <button class="next-btn" id="next-btn" onclick="nextQ()">Next →</button>
+        </div>
+
+        <!-- Result -->
+        <div class="card result" id="result">
+            <h2>🎉 Complete!</h2>
+            <p class="final-score" id="final-score">0/5</p>
+            <p id="message" style="margin:20px 0;color:#aaa;"></p>
+            <button class="start-btn" onclick="reset()">🔄 Play Again</button>
+        </div>
+    </div>
+
+    <script>
+        let data, qIndex = 0, score = 0;
+
+        // Check URL params
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('topic')) {
+            document.getElementById('topic-input').value = params.get('topic');
+            if (params.get('age')) document.getElementById('age-select').value = params.get('age');
+        }
+
+        function startGame() {
+            const topic = document.getElementById('topic-input').value.trim();
+            if (!topic) return alert('Enter a topic!');
+            
+            document.getElementById('topic-display').textContent = topic;
+            document.getElementById('setup').style.display = 'none';
+            document.getElementById('loading').style.display = 'block';
+
+            // Generate game data
+            setTimeout(() => {
+                data = generateQuiz(topic);
+                qIndex = 0;
+                score = 0;
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('game').style.display = 'block';
+                document.getElementById('explanation').textContent = data.explanation;
+                showQ();
+            }, 1500);
+        }
+
+        function generateQuiz(topic) {
+            return {
+                explanation: `${topic} is an important concept. Let's test your knowledge with fun questions!`,
+                questions: [
+                    { q: `What is ${topic} mainly about?`, opts: ['Understanding concepts', 'Just memorizing', 'Skipping it', 'Ignoring it'], ans: 0, tip: 'Understanding is the foundation!' },
+                    { q: `Why should we learn ${topic}?`, opts: ['No reason', 'Helps in real life', 'Just for exams', 'Waste of time'], ans: 1, tip: 'Real-world application matters!' },
+                    { q: `Best way to master ${topic}?`, opts: ['Give up', 'Practice daily', 'Never try', 'Cram once'], ans: 1, tip: 'Daily practice builds mastery!' },
+                    { q: `When stuck on ${topic}, you should:`, opts: ['Quit', 'Break it down', 'Cry', 'Skip forever'], ans: 1, tip: 'Breaking down helps understanding!' },
+                    { q: `${topic} can be learned through:`, opts: ['Games & quizzes', 'Boring lectures only', 'Not at all', 'Magic'], ans: 0, tip: 'Interactive learning is effective!' }
+                ]
+            };
+        }
+
+        function showQ() {
+            const q = data.questions[qIndex];
+            document.getElementById('qnum').textContent = `${qIndex + 1}/5`;
+            document.getElementById('score').textContent = score;
+            document.getElementById('question').textContent = q.q;
+            document.getElementById('feedback').className = 'feedback';
+            document.getElementById('next-btn').className = 'next-btn';
+
+            const opts = document.getElementById('options');
+            opts.innerHTML = '';
+            q.opts.forEach((o, i) => {
+                const btn = document.createElement('button');
+                btn.className = 'option-btn';
+                btn.textContent = o;
+                btn.onclick = () => check(i);
+                opts.appendChild(btn);
+            });
+        }
+
+        function check(i) {
+            const q = data.questions[qIndex];
+            const btns = document.querySelectorAll('.option-btn');
+            const fb = document.getElementById('feedback');
+
+            btns.forEach((b, idx) => {
+                b.disabled = true;
+                if (idx === q.ans) b.classList.add('correct');
+                if (idx === i && i !== q.ans) b.classList.add('wrong');
+            });
+
+            if (i === q.ans) {
+                score++;
+                fb.textContent = '✅ Correct! ' + q.tip;
+                fb.style.background = 'rgba(46,204,113,0.3)';
+            } else {
+                fb.textContent = '❌ Wrong. ' + q.tip;
+                fb.style.background = 'rgba(231,76,60,0.3)';
+            }
+            fb.className = 'feedback show';
+            document.getElementById('score').textContent = score;
+            document.getElementById('next-btn').className = 'next-btn show';
+        }
+
+        function nextQ() {
+            qIndex++;
+            if (qIndex < 5) showQ();
+            else endGame();
+        }
+
+        function endGame() {
+            document.getElementById('game').style.display = 'none';
+            document.getElementById('result').style.display = 'block';
+            document.getElementById('final-score').textContent = `${score}/5`;
+            const msg = score === 5 ? '🏆 Perfect!' : score >= 3 ? '👍 Good job!' : '💪 Keep trying!';
+            document.getElementById('message').textContent = msg;
+        }
+
+        function reset() {
+            document.getElementById('result').style.display = 'none';
+            document.getElementById('setup').style.display = 'block';
+        }
+    </script>
+</body>
+</html>
