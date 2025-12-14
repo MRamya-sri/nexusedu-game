@@ -175,6 +175,9 @@
     <script>
         let data, qIndex = 0, score = 0;
 
+        // 🔑 YOUR OPENROUTER API KEY
+        const API_KEY = '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';
+
         // Check URL params
         const params = new URLSearchParams(window.location.search);
         if (params.get('topic')) {
@@ -182,35 +185,125 @@
             if (params.get('age')) document.getElementById('age-select').value = params.get('age');
         }
 
-        function startGame() {
+        async function startGame() {
             const topic = document.getElementById('topic-input').value.trim();
+            const age = document.getElementById('age-select').value;
             if (!topic) return alert('Enter a topic!');
             
             document.getElementById('topic-display').textContent = topic;
             document.getElementById('setup').style.display = 'none';
             document.getElementById('loading').style.display = 'block';
 
-            // Generate game data
-            setTimeout(() => {
-                data = generateQuiz(topic);
+            try {
+                data = await generateQuizFromAI(topic, age);
                 qIndex = 0;
                 score = 0;
                 document.getElementById('loading').style.display = 'none';
                 document.getElementById('game').style.display = 'block';
                 document.getElementById('explanation').textContent = data.explanation;
                 showQ();
-            }, 1500);
+            } catch (error) {
+                console.error(error);
+                alert('Error generating quiz. Using backup questions.');
+                data = generateBackupQuiz(topic);
+                qIndex = 0;
+                score = 0;
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('game').style.display = 'block';
+                document.getElementById('explanation').textContent = data.explanation;
+                showQ();
+            }
         }
 
-        function generateQuiz(topic) {
+        async function generateQuizFromAI(topic, age) {
+            const ageGroup = age <= 10 ? "6-10 year old child" : age <= 14 ? "11-14 year old student" : "15-18 year old student";
+            
+            const prompt = `Create an educational quiz about "${topic}" for a ${ageGroup}.
+
+Return ONLY valid JSON with no extra text:
+{
+    "explanation": "2-3 sentence simple explanation of ${topic}",
+    "questions": [
+        {
+            "q": "Actual question about ${topic}",
+            "opts": ["Option A", "Option B", "Option C", "Option D"],
+            "ans": 0,
+            "tip": "Why the correct answer is right"
+        }
+    ]
+}
+
+Requirements:
+- Create exactly 5 real questions testing knowledge of ${topic}
+- Questions should be age-appropriate for ${ageGroup}
+- Include actual facts and concepts about ${topic}
+- "ans" is the index (0-3) of the correct option
+- Make questions progressively harder
+- For Prime Numbers: ask about identifying primes, properties, examples
+- For Fractions: ask about operations, simplifying, comparing
+- For any topic: ask real conceptual questions, not generic ones`;
+
+            const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${API_KEY}`
+                },
+                body: JSON.stringify({
+                    model: 'meta-llama/llama-3.1-8b-instruct:free',
+                    messages: [{ role: 'user', content: prompt }],
+                    max_tokens: 1500
+                })
+            });
+
+            const result = await response.json();
+            const content = result.choices[0].message.content;
+            
+            // Extract JSON from response
+            const jsonMatch = content.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+                return JSON.parse(jsonMatch[0]);
+            }
+            throw new Error('Could not parse AI response');
+        }
+
+        function generateBackupQuiz(topic) {
+            // Backup questions for common topics
+            const quizzes = {
+                'prime numbers': {
+                    explanation: 'Prime numbers are numbers greater than 1 that can only be divided by 1 and themselves. Examples: 2, 3, 5, 7, 11.',
+                    questions: [
+                        { q: 'Which of these is a prime number?', opts: ['4', '7', '9', '12'], ans: 1, tip: '7 can only be divided by 1 and 7!' },
+                        { q: 'What is the smallest prime number?', opts: ['0', '1', '2', '3'], ans: 2, tip: '2 is the smallest and only even prime!' },
+                        { q: 'Is 15 a prime number?', opts: ['Yes', 'No, divisible by 3 and 5', 'No, divisible by 2', 'Cannot determine'], ans: 1, tip: '15 = 3 × 5, so not prime!' },
+                        { q: 'How many prime numbers are between 1 and 10?', opts: ['2', '3', '4', '5'], ans: 2, tip: 'They are: 2, 3, 5, 7 = 4 primes!' },
+                        { q: 'Which is NOT a prime number?', opts: ['11', '13', '21', '17'], ans: 2, tip: '21 = 3 × 7, so not prime!' }
+                    ]
+                },
+                'fractions': {
+                    explanation: 'Fractions represent parts of a whole. The top number (numerator) shows parts we have, bottom (denominator) shows total parts.',
+                    questions: [
+                        { q: 'What is 1/2 + 1/2?', opts: ['1/4', '2/4', '1', '2'], ans: 2, tip: 'Two halves make a whole = 1!' },
+                        { q: 'Which fraction is larger: 1/3 or 1/4?', opts: ['1/3', '1/4', 'They are equal', 'Cannot compare'], ans: 0, tip: 'Smaller denominator = larger fraction!' },
+                        { q: 'Simplify 4/8', opts: ['1/4', '2/4', '1/2', '4/8'], ans: 2, tip: 'Divide both by 4: 4÷4/8÷4 = 1/2!' },
+                        { q: 'What is 3/4 of 8?', opts: ['4', '6', '8', '12'], ans: 1, tip: '8 × 3/4 = 24/4 = 6!' },
+                        { q: 'Convert 0.5 to a fraction', opts: ['1/5', '5/10', '1/2', '5/1'], ans: 2, tip: '0.5 = 5/10 = 1/2!' }
+                    ]
+                }
+            };
+
+            const key = topic.toLowerCase();
+            if (quizzes[key]) return quizzes[key];
+
+            // Generic backup
             return {
-                explanation: `${topic} is an important concept. Let's test your knowledge with fun questions!`,
+                explanation: `${topic} is an important concept to learn. Let's test your understanding!`,
                 questions: [
-                    { q: `What is ${topic} mainly about?`, opts: ['Understanding concepts', 'Just memorizing', 'Skipping it', 'Ignoring it'], ans: 0, tip: 'Understanding is the foundation!' },
-                    { q: `Why should we learn ${topic}?`, opts: ['No reason', 'Helps in real life', 'Just for exams', 'Waste of time'], ans: 1, tip: 'Real-world application matters!' },
-                    { q: `Best way to master ${topic}?`, opts: ['Give up', 'Practice daily', 'Never try', 'Cram once'], ans: 1, tip: 'Daily practice builds mastery!' },
-                    { q: `When stuck on ${topic}, you should:`, opts: ['Quit', 'Break it down', 'Cry', 'Skip forever'], ans: 1, tip: 'Breaking down helps understanding!' },
-                    { q: `${topic} can be learned through:`, opts: ['Games & quizzes', 'Boring lectures only', 'Not at all', 'Magic'], ans: 0, tip: 'Interactive learning is effective!' }
+                    { q: `What is the main purpose of learning ${topic}?`, opts: ['To understand the world better', 'No purpose', 'Just for exams', 'To waste time'], ans: 0, tip: 'Learning helps us understand!' },
+                    { q: `${topic} is best learned by:`, opts: ['Ignoring it', 'Practice and examples', 'Memorizing without understanding', 'Guessing'], ans: 1, tip: 'Practice makes perfect!' },
+                    { q: `Why is ${topic} taught in schools?`, opts: ['It has no use', 'It builds foundational knowledge', 'Teachers like it', 'Random reason'], ans: 1, tip: 'Foundation is key!' },
+                    { q: `When facing a difficult part of ${topic}, you should:`, opts: ['Give up', 'Ask for help and practice more', 'Skip it forever', 'Complain'], ans: 1, tip: 'Asking for help is smart!' },
+                    { q: `${topic} connects to:`, opts: ['Nothing', 'Other subjects and real life', 'Only this subject', 'Video games only'], ans: 1, tip: 'Everything connects!' }
                 ]
             };
         }
